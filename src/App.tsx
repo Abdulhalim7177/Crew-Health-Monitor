@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import { AnimatePresence, motion } from 'motion/react'
 import { ChatCircleText, Check, Heartbeat, ListChecks, NotePencil, Planet, SignOut, Siren } from '@phosphor-icons/react'
 import Ask from './Ask'
+import MindToday from './motivaid/mobile/MindToday'
 import CheckIn from './CheckIn'
 import EarthLink from './EarthLink'
 import SignIn from './SignIn'
@@ -20,8 +21,9 @@ const Overview = lazy(() => import('./Overview'))
 const Emergency = lazy(() => import('./Emergency'))
 const Loading = <p className="flex min-h-[50dvh] items-center justify-center text-muted">Loading...</p>
 
-type Tab = 'today' | 'health' | 'earth' | 'ask'
+type Tab = 'mind' | 'today' | 'health' | 'earth' | 'ask'
 const TABS: { id: Tab; label: string; icon: typeof Planet }[] = [
+  { id: 'mind', label: 'Check-in', icon: NotePencil },
   { id: 'today', label: 'Today', icon: ListChecks },
   { id: 'health', label: 'Crew health', icon: Heartbeat },
   { id: 'earth', label: 'Earth link', icon: Planet },
@@ -32,7 +34,7 @@ export default function App() {
   const [signedIn, setSignedIn] = useState(() => getToken() !== null)
   const [state, setState] = useState<ServerState | null>(null)
   const [skew, setSkew] = useState(0)
-  const [tab, setTab] = useState<Tab>('today')
+  const [tab, setTab] = useState<Tab>('mind')
   const [mode, setMode] = useState<Mode>('space')
   const [day, setDay] = useState(60)
   const [mission, setMission] = useState<MissionId>('mars')
@@ -51,7 +53,7 @@ export default function App() {
     lastState.current = ''
     setState(null)
     setSignedIn(false)
-    setTab('today')
+    setTab('mind')
     setSelected('')
   }, [])
 
@@ -185,6 +187,8 @@ export default function App() {
       <Suspense fallback={Loading}>
       {isEarth ? (
         <EarthLink side="earth" day={day} mission={mission} messages={state.messages} skew={skew} onSend={(b) => send(b)} />
+      ) : tab === 'mind' ? (
+        <MindToday userId={user.id} />
       ) : tab === 'today' ? (
         <Today
           user={user}

@@ -9,7 +9,8 @@ export const HERO_ID = 'C1'
 export const SCENARIO_DAYS = 30
 /** Days already in the store when it is first seeded. "Today" is the day after. */
 export const SEEDED_THROUGH = 20
-export const MISSION_START = '2026-11-01T07:00:00.000Z'
+/** Day 21 ("today" after seeding) falls on 14 Nov 2026, the hackathon weekend. */
+export const MISSION_START = '2026-10-25T07:00:00.000Z'
 
 function rng(seed: number) {
   let a = seed >>> 0

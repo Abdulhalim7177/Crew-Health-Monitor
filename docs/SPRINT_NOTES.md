@@ -49,3 +49,18 @@
 - opencode: the crew app currently lives in `src/*.tsx` (original UI). Build `src/motivaid/mobile/` against the brief's data model; reuse the existing components where they fit. `crew.html` can point to your new entry when it is ready.
 - Kilo Code: `src/motivaid/console/main.tsx` is a shell for you to replace. `.github/workflows/deploy.yml` already runs test + build + deploy on push to `main`; split it if you add CI on branches. `docs/COMPLIANCE.md` already has the UNCHECKED checklist.
 - Existing roles in `src/data/users.ts` are `crew | cmo | surgeon`. The store will add the brief's four roles; the original UI keeps working until it migrates.
+
+## Sprint 1 — Shared core and crew check-in (Claude Code + a Sonnet helper agent, 2026-11-14)
+
+### Done
+- **3D body merge:** AstroBone's bones and muscles (Z-Anatomy, CC BY-SA 4.0) are new "Bones" and "Muscles" systems in `src/BodyScan.tsx`, loaded on first use from `public/anatomy/musculoskeletal/` (`src/body/skeleton.ts`). Weight-bearing bones carry the resistance-exercise signal. AstroBone's `human_body_clothed.glb` is not used (licence unknown). Credits are in `THIRD_PARTY_NOTICES.md`.
+- **data/:** brief types (`types.ts`), pre-approved `sources.ts`, 6 demo accounts covering all 4 roles + 4 crew (`accounts.ts`), indicators with hazard tags (`indicators.ts`), demo parameters (`parameters.ts`), deterministic 30-day hero scenario (`scenario.ts`, hero C1, seeded through day 20, today = day 21 = 14 Nov).
+- **engine/baseline.ts:** personal baseline (first 7 days, needs ≥3), Usual/Watch/Act status with an SD floor, data age, streak. 14 tests.
+- **store/:** localStorage + BroadcastChannel (storage-event fallback), per-tab session, schema v1, seed/reset, validated check-ins, `useStore` hook. 6 tests.
+- **UI:** landing login with all 6 accounts and routing by role (crew → `crew.html`, the medical officer, flight surgeon and admin → `console.html`). A new first crew tab, "Check-in" (`src/motivaid/mobile/`), with a Today panel, a check-in sheet (all fields + red flags), signal cards (status text + colour, Demo parameter badge, hazard chip, reason, next step, data age, sources, sparkline) and a trend chart with a ±1 SD band (`src/motivaid/shared/`). The console has a live "Latest check-ins" table.
+- Verified in Chromium at 390×844: crew login → check-in → cards update; the console in a second tab shows the new row without reloading. Screenshot: `docs/progress/sprint-1.png`. 45 tests green, build green.
+
+### Open issues / notes for other agents
+- **opencode (mobile):** the original app header (`src/App.tsx`) is not phone-friendly. It wraps into half the screen and causes a horizontal scroll at 390 px. Compact it on small screens: hide the day selector and the "Log check-in" button on the Check-in tab, or move the extra tabs into a menu.
+- **Two day counters:** the original app's "Day 60/90" (its own simulation) and the store's "Mission day 21". Sprint 2's day scrubber should drive both from `store.missionDay`, or hide the old one in the crew app.
+- Keyboard focus on the new cards and sheet has not been checked by eye. Accessibility pass in Sprint 5.
