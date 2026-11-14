@@ -20,6 +20,8 @@
 - Added `docs/ARCHITECTURE.md`, `docs/AI_USE.md`, `docs/DEMO_SCRIPT.md`, `.github/workflows/deploy.yml`.
 - Removals from the spec's list (Android, companion, Llama): none exist in this repo.
 
+- Deployed: https://abdulhalim7177.github.io/Crew-Health-Monitor/ (GitHub Actions run 43602797207: tests, build, deploy all green). The live page loads and its service worker pre-caches the app.
+
 ### Open issues
 - `npm audit` advisories not reviewed.
 - Two JS chunks over 500 kB (three.js, app); fine for now.

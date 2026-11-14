@@ -15,6 +15,8 @@ npm run dev      # http://localhost:5173, every demo account uses PIN 2026
 npm test
 npm run build
 ```
+**Live (MotivAid): https://abdulhalim7177.github.io/Crew-Health-Monitor/**
+
 Works on Node 22.13+. After the first visit, the deployed build works offline.
 
 MotivAid plan: `SPEC.md`. Agent rules: `AGENTS.md`. Layout: `docs/ARCHITECTURE.md`.
@@ -27,7 +29,7 @@ Health monitoring for a crew that cannot call a doctor. Built for the NASA Space
 
 > **Read this first.** Every person and every reading in this app is simulated. It is a concept demonstrator for a hackathon, not a medical device, and it has not been clinically validated.
 
-**Live demo: https://crew-health-monitor.vercel.app** (every demo account uses PIN `2026`). The live link is a reduced version; see [Live demo versus local](#live-demo-versus-local).
+**Original live demo: https://crew-health-monitor.vercel.app** (every demo account uses PIN `2026`). The live link is a reduced version; see [Live demo versus local](#live-demo-versus-local).
 
 ![Crew health screen: a 3D body with the neck vein flagged, and the signal explained on the right](docs/signal-detail.png)
 
