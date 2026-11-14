@@ -2,7 +2,7 @@
 
 **Intelligent monitoring. Early detection. Personalised care.**
 
-An offline-first, astronaut-facing self-assessment app with a mind-first focus, for the NASA Space Apps Challenge 2026 ("Create Health Monitoring Software for Astronauts on Space Missions").
+A two-app platform for astronaut wellbeing with a mind-first focus: an installable **crew app** (offline-first) and a **staff console** for the medical officer, flight surgeon and mission admin. Built for the NASA Space Apps Challenge 2026 ("Create Health Monitoring Software for Astronauts on Space Missions").
 
 > **Simulated data. Not a medical device. Not clinically validated.**
 
@@ -11,13 +11,13 @@ An offline-first, astronaut-facing self-assessment app with a mind-first focus, 
 ## Run it
 ```bash
 npm install
-npm run dev      # http://localhost:5173, every demo account uses PIN 2026
+npm run dev      # http://localhost:5173 → crew app or staff console; every demo account uses PIN 2026
 npm test
 npm run build
 ```
 **Live (MotivAid): https://abdulhalim7177.github.io/Crew-Health-Monitor/**
 
-Works on Node 22.13+. After the first visit, the deployed build works offline.
+Works on Node 20+. No server: data stays in your browser, and the login is a demo, not secure. After the first visit, the deployed build works offline.
 
 MotivAid plan: `SPEC.md`. Agent rules: `AGENTS.md`. Layout: `docs/ARCHITECTURE.md`.
 

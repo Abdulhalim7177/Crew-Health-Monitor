@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -34,7 +35,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url)
   if (e.request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.includes('/api/')) return
   if (e.request.mode === 'navigate') {
-    e.respondWith(fetch(e.request).catch(() => caches.match('./', { ignoreVary: true })))
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request, { ignoreVary: true, ignoreSearch: true }).then((hit) => hit || caches.match('./', { ignoreVary: true }))))
     return
   }
   e.respondWith(caches.match(e.request, { ignoreVary: true }).then((hit) => hit || fetch(e.request)))
@@ -48,5 +49,15 @@ self.addEventListener('fetch', (e) => {
 export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
   plugins: [react(), tailwindcss(), offlineServiceWorker()],
-  server: { port: 5173, strictPort: true, proxy: { '/api': 'http://127.0.0.1:8787' } },
+  server: { port: 5173, strictPort: true },
+  build: {
+    rollupOptions: {
+      // Three entry pages: landing + login, crew app (installable PWA), staff console.
+      input: {
+        index: fileURLToPath(new URL('index.html', import.meta.url)),
+        crew: fileURLToPath(new URL('crew.html', import.meta.url)),
+        console: fileURLToPath(new URL('console.html', import.meta.url)),
+      },
+    },
+  },
 })

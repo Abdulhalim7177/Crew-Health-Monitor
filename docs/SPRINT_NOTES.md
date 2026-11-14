@@ -30,3 +30,22 @@
 
 ### Notes for other agents
 - The stack is TypeScript, so use `.ts` where SPEC.md says `.js`.
+
+## Catch-up to the Master Brief (Claude Code, 2026-11-14)
+
+**What exists.** Sprint 0 is done on Crew-Health-Monitor (permission on file), live at https://abdulhalim7177.github.io/Crew-Health-Monitor/. The crew-facing UI is the original app: signals, 3D body, trends, check-in, Earth link, handbook, emergency.
+
+**What changed for the brief.**
+- `SPEC.md` is now the Master Brief (with a repo note); `AGENTS.md` is a short pointer with the new ownership (adds `store/`, `mobile/`, `shared/`, `console/`).
+- Removed the Node + SQLite server (`server/index.ts`, `concurrently`, `npm run server`): "a real server" is a non-goal. `src/api.ts` now always uses `src/localBackend.ts`. `npm run dev` is just Vite.
+- Three entry pages: `index.html` (landing), `crew.html` (crew app + PWA manifest + icon), `console.html` (branded shell). The service worker caches all three. Verified offline in Chromium with the server stopped: all three pages load, and crew sign-in works.
+- "Demo login, not secure" on the crew sign-in, the banner, the landing page and the console footer.
+
+**Sprint status.** Sprint 0 is complete against the brief. Sprint 1 is next.
+
+**Next (Claude Code).** `src/motivaid/store/` (typed read/update, subscribe, `BroadcastChannel`, versioned schema, seed/reset); `data/` seed for 4 crew with the hero scenario and demo accounts for all four roles (`crew`, `crewMedicalOfficer`, `flightSurgeon`, `missionAdmin`); then `engine/evaluate` with the five rules (Sprint 2).
+
+**Notes for other agents.**
+- opencode: the crew app currently lives in `src/*.tsx` (original UI). Build `src/motivaid/mobile/` against the brief's data model; reuse the existing components where they fit. `crew.html` can point to your new entry when it is ready.
+- Kilo Code: `src/motivaid/console/main.tsx` is a shell for you to replace. `.github/workflows/deploy.yml` already runs test + build + deploy on push to `main`; split it if you add CI on branches. `docs/COMPLIANCE.md` already has the UNCHECKED checklist.
+- Existing roles in `src/data/users.ts` are `crew | cmo | surgeon`. The store will add the brief's four roles; the original UI keeps working until it migrates.

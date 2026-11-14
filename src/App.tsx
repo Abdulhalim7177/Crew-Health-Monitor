@@ -178,7 +178,7 @@ export default function App() {
       </header>
       {demo && (
         <p role="note" className="border-b border-line bg-check-bg px-4 py-2 text-center text-xs text-check sm:px-6">
-          Demo link with no server: data stays in this browser, sign-in roles are for show here, and the Earth link works between tabs of this browser. Run it locally for the real server and database.
+          Simulated data, stored only in this browser. Demo login, not secure. The Earth link works between tabs of this browser.
         </p>
       )}
 

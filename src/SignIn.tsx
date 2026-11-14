@@ -90,7 +90,7 @@ export default function SignIn({ onDone }: { onDone: () => void }) {
           </Button>
         </form>
         <p className="mt-8 rounded-xl border border-line-strong px-4 py-3 text-center text-sm">Every person and every reading in this app is simulated.</p>
-        <p className="mt-3 text-center text-xs text-muted">Simulated data. Not a medical device. Not clinically validated.</p>
+        <p className="mt-3 text-center text-xs text-muted">Demo login, not secure. Simulated data. Not a medical device. Not clinically validated.</p>
       </motion.div>
     </div>
   )

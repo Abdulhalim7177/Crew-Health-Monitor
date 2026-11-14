@@ -62,35 +62,13 @@ const setToken = (t: string | null) => {
 
 export type Result<T> = { ok: true; data: T } | { ok: false; status: number; error: string }
 
-// With no server (a static demo link), the same calls are answered inside the browser.
-let noServer: Promise<boolean> | null = null
-const serverMissing = () =>
-  (noServer ??= fetch('/api/health', { signal: AbortSignal.timeout(2500) })
-    .then((r) => !(r.ok && (r.headers.get('content-type') ?? '').includes('json')))
-    .catch(() => true))
-
-/** True when there is no server and the app is answering its own calls in the browser. */
-export const isDemoMode = () => serverMissing()
+// MotivAid keeps all data in this browser (no server, see the brief). Calls are answered by localBackend.
+/** Always true: there is no server. Kept so existing screens can show the local-data notice. */
+export const isDemoMode = () => Promise.resolve(true)
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<Result<T>> {
-  if (await serverMissing()) {
-    const r = localCall(method, path, body as Record<string, unknown> | undefined, getToken())
-    return r.status === 200 ? { ok: true, data: r.data as T } : { ok: false, status: r.status, error: (r.data as { error: string }).error }
-  }
-  try {
-    const token = getToken()
-    const res = await fetch(path, {
-      method,
-      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(8000),
-    })
-    const data = await res.json()
-    if (!res.ok) return { ok: false, status: res.status, error: data.error ?? 'Something went wrong.' }
-    return { ok: true, data: data as T }
-  } catch {
-    return { ok: false, status: 0, error: 'The onboard server is not reachable.' }
-  }
+  const r = localCall(method, path, body as Record<string, unknown> | undefined, getToken())
+  return r.status === 200 ? { ok: true, data: r.data as T } : { ok: false, status: r.status, error: (r.data as { error: string }).error }
 }
 
 export const fetchUsers = () => call<{ users: User[] }>('GET', '/api/users')
