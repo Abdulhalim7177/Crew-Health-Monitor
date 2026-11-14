@@ -64,3 +64,6 @@
 - **opencode (mobile):** the original app header (`src/App.tsx`) is not phone-friendly. It wraps into half the screen and causes a horizontal scroll at 390 px. Compact it on small screens: hide the day selector and the "Log check-in" button on the Check-in tab, or move the extra tabs into a menu.
 - **Two day counters:** the original app's "Day 60/90" (its own simulation) and the store's "Mission day 21". Sprint 2's day scrubber should drive both from `store.missionDay`, or hide the old one in the crew app.
 - Keyboard focus on the new cards and sheet has not been checked by eye. Accessibility pass in Sprint 5.
+
+### Body update (after Sprint 1)
+- The AstroBone layers now load with the body: bones, muscles, a **beating heart** (driven by the wearable resting heart rate) and **blood vessels** (red arteries, blue veins; arteries pulse with each beat). The original heart, aorta, vessels and vertebral column are hidden once they load. Assets live in `public/anatomy/astrobone/` (CC BY-SA 4.0). Reduced-motion users get a still heart.

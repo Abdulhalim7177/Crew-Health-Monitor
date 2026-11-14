@@ -141,7 +141,7 @@ export default function Overview({ user, day, setDay, mission, mode, setMode, su
           {crew ? (
             <>
               <div className="min-h-0 flex-1">
-                <BodyScan build={crew.build} hotspots={hotspots} activeId={hoverRow ?? openRow} focusId={openRow} onPick={(id) => setOpenRow(openRow === id ? null : id)} />
+                <BodyScan build={crew.build} heartRate={getReading(checkIns, crew, day, mission).restingHrBpm} hotspots={hotspots} activeId={hoverRow ?? openRow} focusId={openRow} onPick={(id) => setOpenRow(openRow === id ? null : id)} />
               </div>
               {!current.manual && <LiveVitals base={getReading(checkIns, crew, day, mission)} />}
             </>

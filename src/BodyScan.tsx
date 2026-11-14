@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Minus, Plus } from '@phosphor-icons/react'
 import * as THREE from 'three'
 import { ORGAN_SIGNALS, loadAnatomy, type Body } from './body/anatomy'
-import { SKELETON_CREDIT, isWeightBearing, loadSkeleton, type Skeleton } from './body/skeleton'
+import { ASTROBONE_CREDIT, REPLACED_ORGANS, beat, isWeightBearing, loadAstroAnatomy, type AstroAnatomy, type VesselGroup } from './body/astrobone'
 import type { Build, Vec3 } from './body/sdf'
 import type { Level } from './triage'
 
@@ -20,6 +20,8 @@ interface Props {
   activeId: string | null
   /** Signal the camera should move to (the open one). */
   focusId: string | null
+  /** Resting heart rate for the beating heart. Defaults to 60 bpm. */
+  heartRate?: number
   onPick: (id: string) => void
 }
 
@@ -34,6 +36,17 @@ const SYSTEMS: { id: System; label: string }[] = [
 ]
 /** Signal shown on the weight-bearing bones (bone loss without enough resistance exercise). */
 const BONE_SIGNAL = 'exercise'
+/** Signals shown on AstroBone's heart and vessels. */
+const HEART_SIGNALS = ['vitals', 'basics']
+const VESSEL_SIGNALS: Record<VesselGroup, string[]> = { major: ['hematocrit'], arteries: ['hematocrit'], veins: ['ijv'], pulmonary: ['vitals'], renal: ['urine'], other: [] }
+const VESSEL_COLOR: Record<VesselGroup, [number, number, number]> = {
+  major: [1, 0.36, 0.45],
+  arteries: [0.91, 0.32, 0.42],
+  veins: [0.36, 0.53, 1],
+  pulmonary: [0.55, 0.49, 1],
+  renal: [0.7, 0.49, 1],
+  other: [0.69, 0.42, 0.47],
+}
 const SYSTEM_OF: Record<string, System> = {
   brain: 'neuro',
   'right eyeball': 'neuro',
@@ -111,6 +124,7 @@ interface Stage {
   setActive: (id: string | null) => void
   setFocus: (id: string | null) => void
   setSystem: (s: System) => void
+  setHeartRate: (bpm: number) => void
   setView: (v: View) => void
   zoomBy: (factor: number) => void
   dispose: () => void
@@ -148,40 +162,50 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
   const organGroup = new THREE.Group()
   body.add(organGroup)
 
-  // Bones and muscles (from AstroBone). Loaded on first use: the file is 11 MB.
-  const skeletonGroup = new THREE.Group()
-  body.add(skeletonGroup)
-  let skeleton: Skeleton | null = null
-  let skeletonLoading = false
-  const boneMat = new THREE.ShaderMaterial({ ...common, side: THREE.FrontSide, uniforms: { uColor: { value: new THREE.Vector3(0.86, 0.84, 0.78) }, uOpacity: { value: 0.5 }, uFade: fade }, fragmentShader: ORGAN_FRAG })
-  const loadBoneMat = new THREE.ShaderMaterial({ ...common, side: THREE.FrontSide, uniforms: { uColor: { value: new THREE.Vector3(0.86, 0.84, 0.78) }, uOpacity: { value: 0.5 }, uFade: fade }, fragmentShader: ORGAN_FRAG })
-  const muscleMat = new THREE.ShaderMaterial({ ...common, side: THREE.FrontSide, uniforms: { uColor: { value: new THREE.Vector3(0.78, 0.42, 0.42) }, uOpacity: { value: 0.35 }, uFade: fade }, fragmentShader: ORGAN_FRAG })
-  const ensureSkeleton = () => {
-    if (skeleton || skeletonLoading) return
-    skeletonLoading = true
-    onCredit(`${current?.attribution ?? ''}; loading bones and muscles (11 MB)`)
-    void loadSkeleton().then((sk) => {
-      skeletonLoading = false
-      if (disposed) return
-      if (!sk) return onCredit(`${current?.attribution ?? ''}; bones and muscles could not be loaded`)
-      skeleton = sk
-      onCredit(`${current?.attribution ?? ''}; ${SKELETON_CREDIT}`)
-      for (const m of sk.bones) {
-        m.material = isWeightBearing(m.name) ? loadBoneMat : boneMat
-        m.renderOrder = 1
-      }
-      for (const m of sk.muscles) {
-        m.material = muscleMat
-        m.renderOrder = 1
-      }
-      skeletonGroup.add(sk.root)
-      fitSkeleton()
-      refresh()
-    })
+  // AstroBone layers: bones, muscles, heart and vessels (14 MB). They replace the original heart, aorta,
+  // vessels and vertebral column as soon as they load.
+  const astroGroup = new THREE.Group()
+  body.add(astroGroup)
+  let astro: AstroAnatomy | null = null
+  let heartHz = 1
+  let heartPhase = 0
+  const mat = (rgb: [number, number, number], opacity: number) =>
+    new THREE.ShaderMaterial({ ...common, side: THREE.FrontSide, uniforms: { uColor: { value: new THREE.Vector3(...rgb) }, uOpacity: { value: opacity }, uFade: fade }, fragmentShader: ORGAN_FRAG })
+  const boneMat = mat([0.86, 0.84, 0.78], 0.1)
+  const loadBoneMat = mat([0.86, 0.84, 0.78], 0.1)
+  const muscleMat = mat([0.78, 0.42, 0.42], 0)
+  const heartMat = mat([1, 0.25, 0.47], 0.8)
+  const vesselMats = Object.fromEntries((Object.keys(VESSEL_COLOR) as VesselGroup[]).map((g) => [g, mat(VESSEL_COLOR[g], 0.4)])) as Record<VesselGroup, THREE.ShaderMaterial>
+  const vesselBase: Record<VesselGroup, number> = { major: 0.4, arteries: 0.4, veins: 0.4, pulmonary: 0.4, renal: 0.4, other: 0.4 }
+  let heartBase = 0.8
+  const fitAstro = () => {
+    if (astro && current) astro.root.scale.setScalar(current.height)
   }
-  const fitSkeleton = () => {
-    if (skeleton && current) skeleton.root.scale.setScalar(current.height)
-  }
+  void loadAstroAnatomy().then((a) => {
+    if (disposed || !a) return
+    astro = a
+    for (const m of a.bones) {
+      m.material = isWeightBearing(m.name) ? loadBoneMat : boneMat
+      m.renderOrder = 1
+    }
+    for (const m of a.muscles) {
+      m.material = muscleMat
+      m.renderOrder = 1
+    }
+    if (a.heart) {
+      a.heart.userData.baseScale = a.heart.scale.x
+      a.heart.material = heartMat
+      a.heart.renderOrder = 1
+    }
+    for (const v of a.vessels) {
+      v.mesh.material = vesselMats[v.group]
+      v.mesh.renderOrder = 1
+    }
+    astroGroup.add(a.root)
+    fitAstro()
+    if (current) onCredit(`${current.attribution}; ${ASTROBONE_CREDIT}`)
+    refresh()
+  })
 
   const floor = new THREE.Mesh(
     new THREE.RingGeometry(0.5, 0.504, 96),
@@ -228,20 +252,41 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
       o.flagged = level !== 'green'
       o.base = o.flagged ? 0.95 : isActive ? 0.75 : !inSystem ? 0.025 : system === 'all' ? 0.2 : 0.6
       o.mat.uniforms.uOpacity.value = o.base
-      o.mesh.visible = o.base > 0.03
+      o.mesh.visible = o.base > 0.03 && !(astro && REPLACED_ORGANS.has(o.name))
       o.mat.uniforms.uColor.value.set(...(o.flagged ? TINT[level] : isActive ? [0.95, 0.96, 1] : [0.56, 0.6, 0.68]))
     }
-    if (skeleton) {
-      const showBones = system === 'bones' || system === 'muscles' || system === 'all'
-      const boneLevel = hot.find((h) => h.id === BONE_SIGNAL)?.level ?? 'green'
+    if (astro) {
+      const levelOf = (ids: string[]): Level => {
+        let level: Level = 'green'
+        for (const h of hot) if (ids.includes(h.id) && RANK[h.level] > RANK[level]) level = h.level
+        return level
+      }
+      const inBlood = system === 'all' || system === 'blood'
+      // Bones: faint in the overview, solid in the Bones view, a faint frame behind the muscles and the spine.
+      const boneBase = system === 'bones' ? 0.55 : system === 'muscles' || system === 'neuro' ? 0.12 : system === 'all' ? 0.08 : 0
+      const boneLevel = levelOf([BONE_SIGNAL])
       const boneActive = active === BONE_SIGNAL
-      const boneBase = system === 'bones' ? 0.55 : system === 'muscles' ? 0.12 : 0.1
       boneMat.uniforms.uOpacity.value = boneBase
       loadBoneMat.uniforms.uOpacity.value = boneLevel !== 'green' || boneActive ? Math.max(boneBase, 0.8) : boneBase
       loadBoneMat.uniforms.uColor.value.set(...(boneLevel !== 'green' ? TINT[boneLevel] : boneActive ? [0.95, 0.96, 1] : [0.86, 0.84, 0.78]))
       muscleMat.uniforms.uOpacity.value = system === 'muscles' ? 0.4 : 0
-      for (const m of skeleton.bones) m.visible = showBones
-      for (const m of skeleton.muscles) m.visible = system === 'muscles'
+      for (const m of astro.bones) m.visible = boneBase > 0
+      for (const m of astro.muscles) m.visible = system === 'muscles'
+      // Heart and vessels: red arteries, blue veins; flagged ones take the signal colour.
+      const heartLevel = levelOf(HEART_SIGNALS)
+      const heartActive = HEART_SIGNALS.includes(active ?? '')
+      heartBase = heartLevel !== 'green' || heartActive ? 0.95 : inBlood ? 0.8 : 0.06
+      heartMat.uniforms.uOpacity.value = heartBase
+      heartMat.uniforms.uColor.value.set(...(heartLevel !== 'green' ? TINT[heartLevel] : [1, 0.25, 0.47]))
+      if (astro.heart) astro.heart.visible = heartBase > 0.03
+      for (const g of Object.keys(vesselMats) as VesselGroup[]) {
+        const level = levelOf(VESSEL_SIGNALS[g])
+        const isActive = VESSEL_SIGNALS[g].includes(active ?? '')
+        vesselBase[g] = level !== 'green' || isActive ? 0.85 : system === 'blood' ? 0.6 : system === 'all' ? 0.3 : 0.03
+        vesselMats[g].uniforms.uOpacity.value = vesselBase[g]
+        vesselMats[g].uniforms.uColor.value.set(...(level !== 'green' ? TINT[level] : VESSEL_COLOR[g]))
+      }
+      for (const v of astro.vessels) v.mesh.visible = vesselBase[v.group] > 0.03
     }
   }
 
@@ -264,10 +309,10 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
     })
     skin.geometry = current.skin
     skin.visible = true
-    fitSkeleton()
+    fitAstro()
     body.position.y = -current.height / 2
     if (!reduce) fade.value = 0
-    onCredit(skeleton ? `${current.attribution}; ${SKELETON_CREDIT}` : current.attribution)
+    onCredit(astro ? `${current.attribution}; ${ASTROBONE_CREDIT}` : current.attribution)
     refresh()
   }
 
@@ -373,6 +418,14 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
     group.rotation.y = userRot + (reduce ? 0 : (Math.sin(t * 0.28) * 0.4) / zoom)
     skinUniforms.uScan.value = reduce ? -1 : ((t * 0.3) % 1.6) * 1.9 - 0.4
     if (!reduce) for (const o of organs) if (o.flagged) o.mat.uniforms.uOpacity.value = o.base * (0.72 + 0.28 * Math.sin(t * 3.2))
+    // Heartbeat at the person's resting rate: the heart swells and brightens, the arteries pulse with it.
+    if (astro?.heart && !reduce) {
+      heartPhase = (heartPhase + dt * heartHz) % 1
+      const b = beat(heartPhase)
+      astro.heart.scale.setScalar(astro.heart.userData.baseScale * (1 + b * 0.07))
+      heartMat.uniforms.uOpacity.value = Math.min(1, heartBase * (0.85 + 0.25 * b))
+      for (const g of ['major', 'arteries'] as const) vesselMats[g].uniforms.uOpacity.value = Math.min(1, vesselBase[g] * (0.8 + 0.35 * b))
+    }
     renderer.render(scene, camera)
 
     const w = host.clientWidth
@@ -420,8 +473,10 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
     },
     setSystem: (s) => {
       system = s
-      if (s === 'bones' || s === 'muscles') ensureSkeleton()
       refresh()
+    },
+    setHeartRate: (bpm) => {
+      heartHz = Math.min(3, Math.max(0.5, bpm / 60))
     },
     setView: (v) => {
       zoomTo = VIEWS[v].zoom
@@ -442,10 +497,8 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
       el.removeEventListener('pointercancel', up)
       el.removeEventListener('wheel', wheel)
       for (const o of organs) o.mat.dispose()
-      boneMat.dispose()
-      loadBoneMat.dispose()
-      muscleMat.dispose()
-      skeletonGroup.clear()
+      for (const m of [boneMat, loadBoneMat, muscleMat, heartMat, ...Object.values(vesselMats)]) m.dispose()
+      astroGroup.clear()
       skinMaterial.dispose()
       floor.geometry.dispose()
       ;(floor.material as THREE.Material).dispose()
@@ -455,7 +508,7 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
   }
 }
 
-export default function BodyScan({ build, hotspots, activeId, focusId, onPick }: Props) {
+export default function BodyScan({ build, hotspots, activeId, focusId, onPick, heartRate = 60 }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const stage = useRef<Stage | null>(null)
   const markers = useRef(new Map<string, HTMLElement>())
@@ -482,6 +535,7 @@ export default function BodyScan({ build, hotspots, activeId, focusId, onPick }:
   useEffect(() => stage.current?.setActive(activeId), [activeId])
   useEffect(() => stage.current?.setFocus(focusId), [focusId])
   useEffect(() => stage.current?.setSystem(system), [system])
+  useEffect(() => stage.current?.setHeartRate(heartRate), [heartRate])
 
   return (
     <div ref={host} className="relative h-full w-full overflow-hidden" role="group" aria-label="Body view. Markers show where each signal is measured.">
