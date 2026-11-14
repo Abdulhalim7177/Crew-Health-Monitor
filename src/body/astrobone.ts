@@ -23,6 +23,28 @@ export interface AstroAnatomy {
   /** The heart, with its pivot at its own centre so it can beat in place. */
   heart: THREE.Mesh | null
   vessels: { group: VesselGroup; mesh: THREE.Mesh }[]
+  /** Landmarks in the unit-height model, used to fit it inside each reference body. */
+  landmarks: Partial<Record<Landmark, Vec3>>
+}
+
+export type Vec3 = [number, number, number]
+export type Landmark = 'heart' | 'kidneys' | 'skull' | 'pelvis'
+
+/**
+ * Fit the AstroBone model inside the original body: one uniform scale plus an offset, by least squares over
+ * matching landmarks (heart to heart, renal vessels to the kidneys, skull to the brain, pelvis to the bladder,
+ * feet to the floor). Pure function, unit-tested.
+ */
+export function fitLandmarks(pairs: [Vec3, Vec3][]): { scale: number; offset: Vec3 } {
+  const all: [Vec3, Vec3][] = [[[0, 0, 0], [0, 0, 0]], ...pairs] // feet on the floor
+  const n = all.length
+  const ma = all.reduce((a, [p]) => a + p[1], 0) / n
+  const mc = all.reduce((a, [, q]) => a + q[1], 0) / n
+  const sxx = all.reduce((a, [p]) => a + (p[1] - ma) ** 2, 0)
+  const scale = sxx > 0 ? all.reduce((a, [p, q]) => a + (p[1] - ma) * (q[1] - mc), 0) / sxx : 1
+  const ty = mc - scale * ma
+  const mean = (i: 0 | 2) => (pairs.length ? pairs.reduce((a, [p, q]) => a + q[i] - scale * p[i], 0) / pairs.length : 0)
+  return { scale, offset: [mean(0), ty, mean(2)] }
 }
 
 /** Weight-bearing bones that lose density fastest in weightlessness (AstroBone's grouping). Matched by name. */
@@ -80,7 +102,21 @@ export function loadAstroAnatomy(): Promise<AstroAnatomy | null> {
       inner.position.set(-((box.min.x + box.max.x) / 2) * s, -box.min.y * s, -((box.min.z + box.max.z) / 2) * s)
       const root = new THREE.Group()
       root.add(inner)
-      return { root, bones, muscles, heart, vessels }
+      root.updateMatrixWorld(true)
+      const centre = (meshes: THREE.Mesh[]): Vec3 | undefined => {
+        if (!meshes.length) return undefined
+        const b = new THREE.Box3()
+        for (const m of meshes) b.expandByObject(m)
+        const c = b.getCenter(new THREE.Vector3())
+        return [c.x, c.y, c.z]
+      }
+      const landmarks: AstroAnatomy['landmarks'] = {
+        heart: heart ? centre([heart]) : undefined,
+        kidneys: centre(vessels.filter((v) => v.group === 'renal').map((v) => v.mesh)),
+        skull: centre(bones.filter((m) => /frontal bone|parietal bone|occipital bone/i.test(m.name))),
+        pelvis: centre(bones.filter((m) => /hip bone|coxal|sacrum/i.test(m.name))),
+      }
+      return { root, bones, muscles, heart, vessels, landmarks }
     } catch {
       return null
     }

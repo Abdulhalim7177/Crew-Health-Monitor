@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Minus, Plus } from '@phosphor-icons/react'
 import * as THREE from 'three'
 import { ORGAN_SIGNALS, loadAnatomy, type Body } from './body/anatomy'
-import { ASTROBONE_CREDIT, REPLACED_ORGANS, beat, isWeightBearing, loadAstroAnatomy, type AstroAnatomy, type VesselGroup } from './body/astrobone'
+import { ASTROBONE_CREDIT, REPLACED_ORGANS, beat, fitLandmarks, isWeightBearing, loadAstroAnatomy, type AstroAnatomy, type Landmark, type VesselGroup } from './body/astrobone'
 import type { Build, Vec3 } from './body/sdf'
 import type { Level } from './triage'
 
@@ -178,8 +178,27 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
   const vesselMats = Object.fromEntries((Object.keys(VESSEL_COLOR) as VesselGroup[]).map((g) => [g, mat(VESSEL_COLOR[g], 0.4)])) as Record<VesselGroup, THREE.ShaderMaterial>
   const vesselBase: Record<VesselGroup, number> = { major: 0.4, arteries: 0.4, veins: 0.4, pulmonary: 0.4, renal: 0.4, other: 0.4 }
   let heartBase = 0.8
+  // Fit AstroBone's model inside the current reference body by matching landmarks, not just height.
   const fitAstro = () => {
-    if (astro && current) astro.root.scale.setScalar(current.height)
+    if (!astro || !current) return
+    const organ = (name: string) => current?.organs.find((o) => o.name === name)?.center
+    const lk = organ('left kidney')
+    const rk = organ('right kidney')
+    const target: Partial<Record<Landmark, Vec3 | undefined>> = {
+      heart: organ('heart'),
+      kidneys: lk && rk ? [(lk[0] + rk[0]) / 2, (lk[1] + rk[1]) / 2, (lk[2] + rk[2]) / 2] : undefined,
+      skull: organ('brain'),
+      pelvis: organ('urinary bladder'),
+    }
+    const pairs: [Vec3, Vec3][] = []
+    for (const k of Object.keys(target) as Landmark[]) {
+      const a = astro.landmarks[k]
+      const c = target[k]
+      if (a && c) pairs.push([a, c])
+    }
+    const { scale, offset } = pairs.length >= 2 ? fitLandmarks(pairs) : { scale: current.height, offset: [0, 0, 0] as Vec3 }
+    astro.root.scale.setScalar(scale)
+    astro.root.position.set(...offset)
   }
   void loadAstroAnatomy().then((a) => {
     if (disposed || !a) return

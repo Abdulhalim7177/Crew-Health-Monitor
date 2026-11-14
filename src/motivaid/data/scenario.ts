@@ -75,3 +75,17 @@ export function scenarioCheckIn(crewId: string, day: number): CheckIn {
 export function seedCheckIns(): CheckIn[] {
   return CREW.flatMap((c) => Array.from({ length: SEEDED_THROUGH }, (_, i) => scenarioCheckIn(c.id, i + 1)))
 }
+
+/**
+ * History for the day scrubber: the stored check-ins up to `day`, with the scripted scenario filling any day
+ * after the store's today (marked source 'simulated'). Lets the demo play days 21-30 (recovery) ahead of time.
+ */
+export function playbackHistory(stored: CheckIn[], crewId: string, day: number, storeToday: number): CheckIn[] {
+  const byDay = new Map<number, CheckIn>()
+  for (const c of stored) if (c.crewId === crewId && c.missionDay <= day) {
+    const prev = byDay.get(c.missionDay)
+    if (!prev || c.date >= prev.date) byDay.set(c.missionDay, c)
+  }
+  for (let d = storeToday; d <= Math.min(day, SCENARIO_DAYS); d++) if (!byDay.has(d)) byDay.set(d, scenarioCheckIn(crewId, d))
+  return [...byDay.values()].sort((a, b) => a.missionDay - b.missionDay)
+}
