@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Minus, Plus } from '@phosphor-icons/react'
 import * as THREE from 'three'
 import { ORGAN_SIGNALS, loadAnatomy, type Body } from './body/anatomy'
+import { SKELETON_CREDIT, isWeightBearing, loadSkeleton, type Skeleton } from './body/skeleton'
 import type { Build, Vec3 } from './body/sdf'
 import type { Level } from './triage'
 
@@ -22,13 +23,17 @@ interface Props {
   onPick: (id: string) => void
 }
 
-export type System = 'all' | 'blood' | 'neuro' | 'organs'
+export type System = 'all' | 'blood' | 'neuro' | 'organs' | 'bones' | 'muscles'
 const SYSTEMS: { id: System; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'blood', label: 'Heart and blood' },
   { id: 'neuro', label: 'Brain, eyes, spine' },
   { id: 'organs', label: 'Organs' },
+  { id: 'bones', label: 'Bones' },
+  { id: 'muscles', label: 'Muscles' },
 ]
+/** Signal shown on the weight-bearing bones (bone loss without enough resistance exercise). */
+const BONE_SIGNAL = 'exercise'
 const SYSTEM_OF: Record<string, System> = {
   brain: 'neuro',
   'right eyeball': 'neuro',
@@ -143,6 +148,41 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
   const organGroup = new THREE.Group()
   body.add(organGroup)
 
+  // Bones and muscles (from AstroBone). Loaded on first use: the file is 11 MB.
+  const skeletonGroup = new THREE.Group()
+  body.add(skeletonGroup)
+  let skeleton: Skeleton | null = null
+  let skeletonLoading = false
+  const boneMat = new THREE.ShaderMaterial({ ...common, side: THREE.FrontSide, uniforms: { uColor: { value: new THREE.Vector3(0.86, 0.84, 0.78) }, uOpacity: { value: 0.5 }, uFade: fade }, fragmentShader: ORGAN_FRAG })
+  const loadBoneMat = new THREE.ShaderMaterial({ ...common, side: THREE.FrontSide, uniforms: { uColor: { value: new THREE.Vector3(0.86, 0.84, 0.78) }, uOpacity: { value: 0.5 }, uFade: fade }, fragmentShader: ORGAN_FRAG })
+  const muscleMat = new THREE.ShaderMaterial({ ...common, side: THREE.FrontSide, uniforms: { uColor: { value: new THREE.Vector3(0.78, 0.42, 0.42) }, uOpacity: { value: 0.35 }, uFade: fade }, fragmentShader: ORGAN_FRAG })
+  const ensureSkeleton = () => {
+    if (skeleton || skeletonLoading) return
+    skeletonLoading = true
+    onCredit(`${current?.attribution ?? ''}; loading bones and muscles (11 MB)`)
+    void loadSkeleton().then((sk) => {
+      skeletonLoading = false
+      if (disposed) return
+      if (!sk) return onCredit(`${current?.attribution ?? ''}; bones and muscles could not be loaded`)
+      skeleton = sk
+      onCredit(`${current?.attribution ?? ''}; ${SKELETON_CREDIT}`)
+      for (const m of sk.bones) {
+        m.material = isWeightBearing(m.name) ? loadBoneMat : boneMat
+        m.renderOrder = 1
+      }
+      for (const m of sk.muscles) {
+        m.material = muscleMat
+        m.renderOrder = 1
+      }
+      skeletonGroup.add(sk.root)
+      fitSkeleton()
+      refresh()
+    })
+  }
+  const fitSkeleton = () => {
+    if (skeleton && current) skeleton.root.scale.setScalar(current.height)
+  }
+
   const floor = new THREE.Mesh(
     new THREE.RingGeometry(0.5, 0.504, 96),
     new THREE.MeshBasicMaterial({ color: 0x3a3a41, transparent: true, side: THREE.DoubleSide }),
@@ -191,6 +231,18 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
       o.mesh.visible = o.base > 0.03
       o.mat.uniforms.uColor.value.set(...(o.flagged ? TINT[level] : isActive ? [0.95, 0.96, 1] : [0.56, 0.6, 0.68]))
     }
+    if (skeleton) {
+      const showBones = system === 'bones' || system === 'muscles' || system === 'all'
+      const boneLevel = hot.find((h) => h.id === BONE_SIGNAL)?.level ?? 'green'
+      const boneActive = active === BONE_SIGNAL
+      const boneBase = system === 'bones' ? 0.55 : system === 'muscles' ? 0.12 : 0.1
+      boneMat.uniforms.uOpacity.value = boneBase
+      loadBoneMat.uniforms.uOpacity.value = boneLevel !== 'green' || boneActive ? Math.max(boneBase, 0.8) : boneBase
+      loadBoneMat.uniforms.uColor.value.set(...(boneLevel !== 'green' ? TINT[boneLevel] : boneActive ? [0.95, 0.96, 1] : [0.86, 0.84, 0.78]))
+      muscleMat.uniforms.uOpacity.value = system === 'muscles' ? 0.4 : 0
+      for (const m of skeleton.bones) m.visible = showBones
+      for (const m of skeleton.muscles) m.visible = system === 'muscles'
+    }
   }
 
   const show = () => {
@@ -212,9 +264,10 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
     })
     skin.geometry = current.skin
     skin.visible = true
+    fitSkeleton()
     body.position.y = -current.height / 2
     if (!reduce) fade.value = 0
-    onCredit(current.attribution)
+    onCredit(skeleton ? `${current.attribution}; ${SKELETON_CREDIT}` : current.attribution)
     refresh()
   }
 
@@ -367,6 +420,7 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
     },
     setSystem: (s) => {
       system = s
+      if (s === 'bones' || s === 'muscles') ensureSkeleton()
       refresh()
     },
     setView: (v) => {
@@ -388,6 +442,10 @@ function createStage(host: HTMLDivElement, markerOf: (id: string) => HTMLElement
       el.removeEventListener('pointercancel', up)
       el.removeEventListener('wheel', wheel)
       for (const o of organs) o.mat.dispose()
+      boneMat.dispose()
+      loadBoneMat.dispose()
+      muscleMat.dispose()
+      skeletonGroup.clear()
       skinMaterial.dispose()
       floor.geometry.dispose()
       ;(floor.material as THREE.Material).dispose()
