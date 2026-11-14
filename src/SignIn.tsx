@@ -37,7 +37,8 @@ export default function SignIn({ onDone }: { onDone: () => void }) {
         <div className="flex items-center gap-3">
           <Logo />
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Crew Health Monitor</h1>
+            <h1 className="text-xl font-semibold tracking-tight">MotivAid</h1>
+            <p className="mt-1 text-sm text-muted">Intelligent monitoring. Early detection. Personalised care.</p>
             <p className="text-sm text-muted">Sign in to continue</p>
           </div>
         </div>
@@ -89,7 +90,7 @@ export default function SignIn({ onDone }: { onDone: () => void }) {
           </Button>
         </form>
         <p className="mt-8 rounded-xl border border-line-strong px-4 py-3 text-center text-sm">Every person and every reading in this app is simulated.</p>
-        <p className="mt-3 text-center text-xs text-muted">Educational prototype. Not a medical device.</p>
+        <p className="mt-3 text-center text-xs text-muted">Simulated data. Not a medical device. Not clinically validated.</p>
       </motion.div>
     </div>
   )

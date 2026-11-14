@@ -17,7 +17,7 @@ export const LEVEL_LINE: Record<Level, string> = { green: '#8B8B94', amber: '#F5
 /** Product mark: an orbit ring with a pulse line through it. Our own mark, not NASA's. */
 export function Logo() {
   return (
-    <svg viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Crew Health Monitor">
+    <svg viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="MotivAid">
       <circle cx="16" cy="16" r="13" fill="none" stroke="#3A3A41" strokeWidth="1.5" />
       <path d="M3 16h7l2.5-6 4 12 2.8-8 1.7 2H29" fill="none" stroke="#EDEDEF" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="25.2" cy="6.8" r="2" fill="#EDEDEF" />

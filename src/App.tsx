@@ -127,7 +127,7 @@ export default function App() {
       <header className="z-10 flex flex-wrap lg:sticky lg:top-0 items-center gap-x-3 gap-y-2 border-b border-line bg-bar/95 px-4 py-2.5 backdrop-blur-md sm:px-6">
         <div className="flex items-center gap-3">
           <Logo />
-          <p className="hidden text-[15px] font-semibold tracking-tight 2xl:block">Crew Health Monitor</p>
+          <p className="hidden text-[15px] font-semibold tracking-tight 2xl:block">MotivAid</p>
         </div>
 
         {!isEarth && (
@@ -247,6 +247,10 @@ export default function App() {
           )}
         </AnimatePresence>
       </div>
+
+      <footer className="border-t border-line px-4 py-3 text-center text-xs text-muted sm:px-6">
+        MotivAid · Simulated data. Not a medical device. Not clinically validated. · Built on Crew-Health-Monitor by AdityaK0804, used with permission.
+      </footer>
     </div>
   )
 }

@@ -21,7 +21,6 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { DatabaseSync } from 'node:sqlite'
-import { allowed, reword, rewordEnabled } from '../api/reword.js'
 import { CREW, MISSION_DAYS } from '../src/data/simulatedCrew.ts'
 import { isMission, linkDelay } from '../src/data/missions.ts'
 import { DEMO_PIN, USERS, canSee, type User } from '../src/data/users.ts'
@@ -154,13 +153,6 @@ const server = createServer(async (req, res) => {
   try {
     if (method === 'GET' && path === '/api/health') return send(res, 200, { ok: true })
     if (method === 'GET' && path === '/api/users') return send(res, 200, { users: USERS })
-    if (method === 'GET' && path === '/api/reword') return send(res, 200, { enabled: rewordEnabled() })
-    if (method === 'POST' && path === '/api/reword') {
-      if (!allowed(req.socket.remoteAddress ?? 'local')) return send(res, 429, { error: 'Too many rewording requests. Try again in a minute.' })
-      const body = await readJson(req)
-      const r = await reword(body.question, body.text)
-      return r.ok ? send(res, 200, { text: r.text }) : send(res, r.status, { error: r.error })
-    }
 
     if (method === 'POST' && path === '/api/login') {
       const body = await readJson(req)

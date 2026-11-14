@@ -11,12 +11,20 @@
   - `npm run build`: OK (warning: two chunks over 500 kB).
   - `npm run dev`: API on 127.0.0.1:8787, web on 127.0.0.1:5173.
 
-### Still to do
-- `docs/ARCHITECTURE.md`, `docs/AI_USE.md`, `docs/DEMO_SCRIPT.md` (move from the repo root).
-- Remove the Gemini reword (`api/reword.js`, `.env.example`, Ask tab hook): cloud AI breaks the offline rule.
-- Rebrand to MotivAid: name, tagline, footer "Simulated data. Not a medical device. Not clinically validated."
-- Check that the app works offline after one visit (service worker).
-- Deploy, then add a screenshot as `docs/progress/sprint-0.png`.
+### Done in part 2
+- Removed the Gemini rewording (cloud AI, broke the offline rule): deleted `api/reword.js`, `api/reword.d.ts`, `.env.example`; removed the `/api/reword` routes from `server/index.ts` and the toggle from `src/Ask.tsx`; removed the README section.
+- Rebranded: page title, sign-in heading + tagline, header name, logo label, package name `motivaid`, README header with credit to the original.
+- Footer on every signed-in screen: "Simulated data. Not a medical device. Not clinically validated." plus the credit line.
+- Offline: `vite.config.ts` writes `dist/sw.js` at build time; `src/main.tsx` registers it. Verified in Chromium: after one visit, with the server stopped, the app reloads and sign-in works (`docs/progress/sprint-0.png`).
+- `BASE_PATH` support for GitHub Pages (anatomy fetch uses `import.meta.env.BASE_URL`).
+- Added `docs/ARCHITECTURE.md`, `docs/AI_USE.md`, `docs/DEMO_SCRIPT.md`, `.github/workflows/deploy.yml`.
+- Removals from the spec's list (Android, companion, Llama): none exist in this repo.
+
+### Open issues
+- `npm audit` advisories not reviewed.
+- Two JS chunks over 500 kB (three.js, app); fine for now.
+- The original root `DEMO_SCRIPT.md`, `PROGRESS.md`, `CHALLENGE.md`, `RESEARCH_LOG.md` still describe Crew-Health-Monitor (Kilo Code: update or move under `docs/legacy/`).
+- Kilo Code owns CI: the deploy workflow was added by Claude Code so Sprint 0 could ship. Feel free to split test and deploy jobs.
 
 ### Notes for other agents
 - The stack is TypeScript, so use `.ts` where SPEC.md says `.js`.

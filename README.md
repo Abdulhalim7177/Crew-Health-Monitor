@@ -1,4 +1,27 @@
-# Crew Health Monitor
+# MotivAid
+
+**Intelligent monitoring. Early detection. Personalised care.**
+
+An offline-first, astronaut-facing self-assessment app with a mind-first focus, for the NASA Space Apps Challenge 2026 ("Create Health Monitoring Software for Astronauts on Space Missions").
+
+> **Simulated data. Not a medical device. Not clinically validated.**
+
+**Built on [Crew-Health-Monitor](https://github.com/AdityaK0804/Crew-Health-Monitor) by AdityaK0804, used and modified with the author's written permission.** All credit for the original concept, code and design goes to its author. See `THIRD_PARTY_NOTICES.md` and `docs/PERMISSIONS.md`.
+
+## Run it
+```bash
+npm install
+npm run dev      # http://localhost:5173, every demo account uses PIN 2026
+npm test
+npm run build
+```
+Works on Node 22.13+. After the first visit, the deployed build works offline.
+
+MotivAid plan: `SPEC.md`. Agent rules: `AGENTS.md`. Layout: `docs/ARCHITECTURE.md`.
+
+---
+
+## Original project README (Crew-Health-Monitor)
 
 Health monitoring for a crew that cannot call a doctor. Built for the NASA Space Apps Challenge 2026, "Create Health Monitoring Software for Astronauts on Space Missions".
 
@@ -221,14 +244,6 @@ This is a prototype. It is not deployable, and we do not claim it is. A real sys
 - Images sent to Earth with the report, and any reading of them. Today an image is only stored and shown.
 - Measured data for long stays in Moon gravity. The 60% fluid shift is an assumption, and bone loss, mission length and crew routines do not change with the setting.
 
-## Optional: Gemini rewording
-
-The Ask tab works with no AI model. If you want friendlier wording, it can pass the handbook answer to Gemini to be reworded. Gemini only rewrites text the handbook already chose, and the original text stays visible under it. This needs internet, so it is a demo extra, not something for a spacecraft.
-
-- Locally: copy `.env.example` to `.env` and put your key after `GEMINI_API_KEY=`.
-- On Vercel: Project, Settings, Environment Variables, add `GEMINI_API_KEY`, then redeploy.
-
-The key stays on the server (`api/reword.js`). It is never sent to the browser and `.env` is not committed.
 
 ## Credits
 

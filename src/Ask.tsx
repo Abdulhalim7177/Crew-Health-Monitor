@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { PaperPlaneTilt } from '@phosphor-icons/react'
 import { SUGGESTED, ask, type Answer } from './handbook'
@@ -10,8 +10,6 @@ interface Turn {
   id: number
   question: string
   answers: Answer[]
-  /** Gemini's rewording: 'wait' while loading, 'failed' if it did not work, else the text. */
-  reworded?: string
 }
 
 export default function Ask({ subjects, meId, day, mission }: { subjects: Subject[]; meId: string; day: number; mission: MissionId }) {
@@ -19,31 +17,14 @@ export default function Ask({ subjects, meId, day, mission }: { subjects: Subjec
   const [draft, setDraft] = useState('')
   const end = useRef<HTMLDivElement>(null)
 
-  // Optional Gemini rewording. Only offered when the server says it has a key.
-  const [canReword, setCanReword] = useState(false)
-  const [natural, setNatural] = useState(false)
-  useEffect(() => {
-    fetch('/api/reword')
-      .then((r) => ((r.headers.get('content-type') ?? '').includes('json') ? r.json() : { enabled: false }))
-      .then((d: { enabled?: boolean }) => setCanReword(d.enabled === true))
-      .catch(() => setCanReword(false))
-  }, [])
-
   const submit = (question: string) => {
     const q = question.trim()
     if (!q) return
     const answers = ask(q, subjects, meId, day, mission)
     const id = Date.now()
-    setTurns((t) => [...t, { id, question: q, answers, reworded: natural && canReword && answers.length > 0 ? 'wait' : undefined }])
+    setTurns((t) => [...t, { id, question: q, answers }])
     setDraft('')
     setTimeout(() => end.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 50)
-    if (!(natural && canReword) || answers.length === 0) return
-    // The handbook picks the facts. Gemini only rewrites them.
-    const text = answers.map((a) => `${a.title}\n${a.lines.join('\n')}`).join('\n\n')
-    fetch('/api/reword', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, text }), signal: AbortSignal.timeout(20000) })
-      .then((r) => r.json())
-      .then((d: { text?: string }) => setTurns((t) => t.map((x) => (x.id === id ? { ...x, reworded: d.text ?? 'failed' } : x))))
-      .catch(() => setTurns((t) => t.map((x) => (x.id === id ? { ...x, reworded: 'failed' } : x))))
   }
 
   return (
@@ -52,12 +33,6 @@ export default function Ask({ subjects, meId, day, mission }: { subjects: Subjec
         <div className="border-b border-line px-5 py-4">
           <h1 className="text-lg font-semibold tracking-tight">Ask the handbook</h1>
           <p className="mt-0.5 text-sm text-muted">Works with no connection and no AI model. It answers only from today's readings, the rules and their sources. If it does not know, it says so.</p>
-          {canReword && (
-            <label className="mt-3 flex min-h-11 w-fit items-center gap-2 rounded-[10px] border border-line-strong px-3 text-sm">
-              <input type="checkbox" checked={natural} onChange={(e) => setNatural(e.target.checked)} className="h-4 w-4 accent-accent" />
-              Reword answers with Gemini (needs internet)
-            </label>
-          )}
         </div>
 
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
@@ -83,14 +58,6 @@ export default function Ask({ subjects, meId, day, mission }: { subjects: Subjec
                   </p>
                 ) : (
                   <>
-                    {t.reworded && (
-                      <div className="max-w-[90%] rounded-2xl border border-line-strong bg-raised px-4 py-3">
-                        <p className="text-sm leading-relaxed">
-                          {t.reworded === 'wait' ? 'Rewording...' : t.reworded === 'failed' ? 'Rewording did not work. The handbook text is below.' : t.reworded}
-                        </p>
-                        {t.reworded !== 'wait' && t.reworded !== 'failed' && <p className="mt-2 text-xs text-muted">Reworded by Gemini. The facts come from the handbook text below; check it if anything looks different.</p>}
-                      </div>
-                    )}
                     {t.answers.map((a) => (
                     <article key={a.title} className="max-w-[90%] rounded-2xl border border-line bg-ground px-4 py-3">
                       <h2 className="font-semibold">{a.title}</h2>

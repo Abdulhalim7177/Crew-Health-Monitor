@@ -59,8 +59,8 @@ export function loadAnatomy(): Promise<Record<Build, Body> | null> {
   pending ??= (async () => {
     try {
       const [manifest, buffer] = await Promise.all([
-        fetch('/anatomy/anatomy.json').then((r) => (r.ok ? (r.json() as Promise<Manifest>) : Promise.reject())),
-        fetch('/anatomy/anatomy.bin').then((r) => (r.ok ? r.arrayBuffer() : Promise.reject())),
+        fetch(`${import.meta.env.BASE_URL}anatomy/anatomy.json`).then((r) => (r.ok ? (r.json() as Promise<Manifest>) : Promise.reject())),
+        fetch(`${import.meta.env.BASE_URL}anatomy/anatomy.bin`).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject())),
       ])
       const geometry = (m: MeshRef) => {
         const g = new THREE.BufferGeometry()
