@@ -3,7 +3,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { CREW } from '../data/accounts'
 import { INDICATORS, INDICATOR, RED_FLAGS } from '../data/indicators'
 import type { Domain, IndicatorId } from '../data/types'
-import { checkInStreak, computeBaseline, dataAgeDays, historyFor, indicatorStatus } from '../engine/baseline'
+import { checkInStreak, computeBaseline, dataAgeDays, indicatorStatus } from '../engine/baseline'
+import { baselinesFor, effectiveRuleset, evaluate } from '../engine/evaluate'
+import { SCENARIO_DAYS, playbackHistory } from '../data/scenario'
+import { FindingCard } from '../shared/FindingCard'
+import { LoopVisual } from '../shared/LoopVisual'
 import { SignalCard } from '../shared/SignalCard'
 import { TrendChart } from '../shared/TrendChart'
 import { DEMO_PIN } from '../data/accounts'
@@ -34,9 +38,29 @@ export default function MindToday({ userId }: { userId: string }) {
   const [saved, setSaved] = useState(false)
   const [trendId, setTrendId] = useState<IndicatorId>('stress')
 
-  const today = state.missionDay
-  const history = useMemo(() => historyFor(state.checkIns, crewId, today), [state.checkIns, crewId, today])
-  const todays = history.find((c) => c.missionDay === today)
+  const storeToday = state.missionDay
+  const [scrub, setScrub] = useState<number | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const [openId, setOpenId] = useState<string | null>(null)
+  const today = Math.min(Math.max(scrub ?? storeToday, 1), SCENARIO_DAYS)
+  const isToday = today === storeToday
+  const future = today > storeToday
+  useEffect(() => {
+    if (!playing) return
+    const t = setInterval(() => setScrub((d) => {
+      const n = (d ?? storeToday) + 1
+      if (n >= SCENARIO_DAYS) setPlaying(false)
+      return Math.min(n, SCENARIO_DAYS)
+    }), 1200)
+    return () => clearInterval(t)
+  }, [playing, storeToday])
+  const history = useMemo(() => playbackHistory(state.checkIns, crewId, today, storeToday), [state.checkIns, crewId, today, storeToday])
+  const ruleset = useMemo(() => effectiveRuleset(state.ruleOverrides), [state.ruleOverrides])
+  const findings = useMemo(() => evaluate(history, baselinesFor(history), ruleset), [history, ruleset])
+  const hasStored = state.checkIns.some((c) => c.crewId === crewId && c.missionDay === today)
+  const scripted = !hasStored && today >= storeToday
+  const todays = hasStored ? history.find((c) => c.missionDay === today) : undefined
+  const topFinding = findings.find((f) => f.id === openId) ?? findings[0]
   const latest = history[history.length - 1]
   const streak = checkInStreak(history, today)
 
@@ -69,7 +93,7 @@ export default function MindToday({ userId }: { userId: string }) {
       <section aria-labelledby="mt-today" className="rounded-2xl border border-line bg-panel p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="mt-today" className="text-lg font-semibold">Mission day {today} · MotivAid scenario</h2>
-          <span className="rounded-md border border-line-strong px-2 py-0.5 text-xs text-muted">Simulated</span>
+          <span className="rounded-md border border-line-strong px-2 py-0.5 text-xs text-muted">{scripted ? 'Simulated · Scripted scenario' : 'Simulated'}</span>
         </div>
         {isMedic ? (
           <div className="mt-2">
@@ -92,11 +116,41 @@ export default function MindToday({ userId }: { userId: string }) {
           <div><dt className="text-muted">Streak</dt><dd className="font-medium">{streak} {streak === 1 ? 'day' : 'days'}</dd></div>
           <div><dt className="text-muted">Watch or act</dt><dd className="font-medium">{flagged} of {signals.length}</dd></div>
         </dl>
-        <button onClick={() => { setSaved(false); setFormOpen(true) }} className="press mt-4 min-h-12 w-full rounded-[10px] bg-ink text-base font-semibold text-ground hover:bg-white">
+        <div className="mt-4 rounded-xl border border-line bg-raised p-3">
+          <label htmlFor="mt-scrub" className="text-sm font-medium">Scenario playback (mission day {today})</label>
+          <input id="mt-scrub" type="range" min={1} max={SCENARIO_DAYS} step={1} value={today} onChange={(e) => { setPlaying(false); setScrub(Number(e.target.value)) }} className="day-range mt-1 w-full" aria-valuetext={`Mission day ${today} of ${SCENARIO_DAYS}`} />
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" onClick={() => { setPlaying(false); setScrub(Math.max(1, today - 1)) }} disabled={today <= 1} className="press min-h-11 rounded-[10px] border border-line-strong px-3 text-sm disabled:opacity-40">Previous day</button>
+            <button type="button" onClick={() => { setPlaying(false); setScrub(Math.min(SCENARIO_DAYS, today + 1)) }} disabled={today >= SCENARIO_DAYS} className="press min-h-11 rounded-[10px] border border-line-strong px-3 text-sm disabled:opacity-40">Next day</button>
+            <button type="button" onClick={() => setPlaying((p) => !p)} disabled={!playing && today >= SCENARIO_DAYS} aria-pressed={playing} className="press min-h-11 rounded-[10px] border border-line-strong px-3 text-sm disabled:opacity-40">{playing ? 'Pause' : 'Play'}</button>
+            <button type="button" onClick={() => { setPlaying(false); setScrub(null) }} disabled={isToday} className="press min-h-11 rounded-[10px] border border-line-strong px-3 text-sm disabled:opacity-40">Back to today</button>
+          </div>
+          {future && <p role="status" className="mt-2 rounded-lg bg-check-bg px-3 py-2 text-sm text-check">Scripted scenario: these days have not happened yet. Nothing here is a real check-in.</p>}
+          {!future && !isToday && <p className="mt-2 text-xs text-muted">Viewing an earlier day. Today is mission day {storeToday}.</p>}
+        </div>
+        <button disabled={!isToday} aria-describedby="mt-ci-note" onClick={() => { setSaved(false); setFormOpen(true) }} className="press mt-4 min-h-12 w-full rounded-[10px] bg-ink text-base font-semibold text-ground hover:bg-white disabled:cursor-not-allowed disabled:opacity-40">
           {todays ? 'Update daily check-in' : 'Daily check-in'}
         </button>
+        {!isToday && <p id="mt-ci-note" className="mt-2 text-sm text-muted">Check-in works on today only (day {storeToday}). Use Back to today.</p>}
         <p role="status" className="mt-2 text-sm">{saved ? `Check-in saved for day ${today}. Cards and trends are updated.` : ''}</p>
         <p className="mt-1 text-xs text-dim">Statuses compare you with your own baseline. Thresholds are demo parameters.</p>
+      </section>
+
+      <section className="mt-6" aria-labelledby="mt-findings">
+        <h3 id="mt-findings" className="text-xs font-medium tracking-[0.08em] text-dim uppercase">Patterns across Heart, Sleep and Mind · {scripted ? 'Scripted scenario' : 'Simulated'}</h3>
+        {findings.length === 0 ? (
+          <div className="mt-2 rounded-2xl border border-line bg-panel p-4 text-sm">
+            <p className="font-medium">No patterns found today</p>
+            <p className="mt-1 text-muted">The engine checks HEART, SLEEP and MIND together, not one signal at a time.</p>
+          </div>
+        ) : (
+          <ul className="mt-2 space-y-3">
+            {findings.map((f) => <FindingCard key={f.id} finding={f} ruleset={ruleset} open={openId === f.id} selected={topFinding?.id === f.id} onToggle={() => setOpenId(openId === f.id ? null : f.id)} />)}
+          </ul>
+        )}
+        <div className="mt-4 rounded-2xl border border-line bg-panel p-4">
+          <LoopVisual domains={topFinding?.domains ?? []} severity={topFinding?.severity ?? 'ok'} />
+        </div>
       </section>
 
       {DOMAINS.map((dom) => (

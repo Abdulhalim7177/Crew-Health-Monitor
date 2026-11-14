@@ -67,3 +67,18 @@
 
 ### Body update (after Sprint 1)
 - The AstroBone layers now load with the body: bones, muscles, a **beating heart** (driven by the wearable resting heart rate) and **blood vessels** (red arteries, blue veins; arteries pulse with each beat). The original heart, aorta, vessels and vertebral column are hidden once they load. Assets live in `public/anatomy/astrobone/` (CC BY-SA 4.0). Reduced-motion users get a still heart.
+
+## Sprint 2 — Interaction engine and loop visual (Claude Code + a Sonnet helper agent, 2026-11-14)
+
+### Done
+- **Engine** (`src/motivaid/engine/evaluate.ts`, `src/motivaid/data/rules.ts`): `evaluate(history, baselines, ruleset)` with LOOP-SLEEP-STRESS, LOOP-STRAIN-HEART, ISOLATION-DRIFT, FATIGUE-PERFORMANCE and RED-FLAG. All thresholds are in `rules.ts` as demo parameters with staff-editable ranges; `effectiveRuleset(overrides)` clamps edits; the red flag always comes first and escalates. 19 tests (fire, no-fire, red-flag override, overrides, scenario timeline).
+- **Scenario check:** hero C1 fires LOOP-SLEEP-STRESS on day 17 and LOOP-STRAIN-HEART (act) on day 20, and is clear by day 24. C2–C4 never fire. The loop needs 4 days in a row (demo parameter) so it starts on day 17, as the brief says.
+- **UI** (`src/motivaid/shared/WhyPanel.tsx`, `FindingCard.tsx`, `LoopVisual.tsx`, `severity.ts`; `src/motivaid/mobile/MindToday.tsx`): findings list, "Why this fired" (evidence rows, "Fires when" parameters, next step, source links, Demo parameter badge), HEART–SLEEP–MIND loop SVG, and a day scrubber (1–30, play/pause, back to today; future days labelled "Scripted scenario", check-in only on today).
+- **Body:** the AstroBone layers are fitted by least squares on heart, kidneys, skull and pelvis landmarks (`fitLandmarks`, tested).
+- **Phone:** the crew tab bar now scrolls inside itself; no horizontal page scroll at 390 px.
+- 67 tests green, build green. Screenshot: `docs/progress/sprint-2.png`.
+
+### Open issues
+- The female reference body's arms are held wider than the AstroBone skeleton's (would need joint re-posing; not planned).
+- Play button, keyboard use and the red-flag path are not yet checked in a browser (Sprint 5 accessibility pass).
+- Next (Sprint 3, console): create Alerts from act/escalate findings (`evaluateDay` + store), triage queue, crew overview grid, roster, Earth-link messages.

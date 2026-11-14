@@ -133,7 +133,7 @@ export default function App() {
         </div>
 
         {!isEarth && (
-          <nav className="flex gap-1" aria-label="Sections">
+          <nav className="flex min-w-0 max-w-full gap-1 overflow-x-auto" aria-label="Sections">
             {TABS.map((t) => (
               <button key={t.id} onClick={() => setTab(t.id)} aria-current={tab === t.id ? 'page' : undefined} className="press relative flex min-h-11 items-center gap-2 rounded-[10px] px-3 text-sm font-medium">
                 {tab === t.id && <motion.span layoutId="tab-active" transition={SPRING} className="absolute inset-0 rounded-[10px] bg-raised" />}
